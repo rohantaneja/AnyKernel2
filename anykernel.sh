@@ -1,68 +1,46 @@
-# AnyKernel2 Ramdisk Mod Script
+# AnyKernel 2.0 Ramdisk Mod Script 
 # osm0sis @ xda-developers
 
 ## AnyKernel setup
-# begin properties
-properties() {
-kernel.string=DirtyV by bsmitty83 @ xda-developers
+# EDIFY properties
+kernel.string=Daredevil Kernel by Rohan Taneja @ xda-developers
 do.devicecheck=1
-do.modules=0
+do.system=0
+do.initd=0
+do.modules=1
 do.cleanup=1
-do.cleanuponabort=0
-device.name1=maguro
-device.name2=toro
-device.name3=toroplus
-device.name4=
-device.name5=
-} # end properties
+device.name1=aio_row
+device.name2=A7000
 
 # shell variables
-block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;
-is_slot_device=0;
+block=/dev/block/platform/mtk-msdc.0/by-name/boot;
 
+## end setup
 
 ## AnyKernel methods (DO NOT CHANGE)
 # import patching functions/variables - see for reference
 . /tmp/anykernel/tools/ak2-core.sh;
 
-
 ## AnyKernel permissions
 # set permissions for included ramdisk files
 chmod -R 755 $ramdisk
-chmod 644 $ramdisk/sbin/media_profiles.xml
-
 
 ## AnyKernel install
 dump_boot;
 
-# begin ramdisk changes
+# init.d patch
+append_file init.rc "init.d support" init_patch;
+append_file default.prop "sys.init.d.loop=on" init_prop_patch;
+mkdir /system/etc/init.d
+chmod -R 755 /system/etc/init.d
+cp /tmp/anykernel/tools/busybox /system/xbin
+chmod 755 /system/xbin/busybox
 
-# init.rc
-backup_file init.rc;
-replace_string init.rc "cpuctl cpu,timer_slack" "mount cgroup none /dev/cpuctl cpu" "mount cgroup none /dev/cpuctl cpu,timer_slack";
-append_file init.rc "run-parts" init;
-
-# init.tuna.rc
-backup_file init.tuna.rc;
-insert_line init.tuna.rc "nodiratime barrier=0" after "mount_all /fstab.tuna" "\tmount ext4 /dev/block/platform/omap/omap_hsmmc.0/by-name/userdata /data remount nosuid nodev noatime nodiratime barrier=0";
-append_file init.tuna.rc "dvbootscript" init.tuna;
-
-# init.superuser.rc
-if [ -f init.superuser.rc ]; then
-  backup_file init.superuser.rc;
-  replace_string init.superuser.rc "Superuser su_daemon" "# su daemon" "\n# Superuser su_daemon";
-  prepend_file init.superuser.rc "SuperSU daemonsu" init.superuser;
-else
-  replace_file init.superuser.rc 750 init.superuser.rc;
-  insert_line init.rc "init.superuser.rc" after "on post-fs-data" "    import /init.superuser.rc";
-fi;
-
-# fstab.tuna
-backup_file fstab.tuna;
-patch_fstab fstab.tuna /system ext4 options "nodiratime,barrier=0" "nodev,noatime,nodiratime,barrier=0,data=writeback,noauto_da_alloc,discard";
-patch_fstab fstab.tuna /cache ext4 options "barrier=0,nomblk_io_submit" "nosuid,nodev,noatime,nodiratime,errors=panic,barrier=0,nomblk_io_submit,data=writeback,noauto_da_alloc";
-patch_fstab fstab.tuna /data ext4 options "nomblk_io_submit,data=writeback" "nosuid,nodev,noatime,errors=panic,nomblk_io_submit,data=writeback,noauto_da_alloc";
-append_file fstab.tuna "usbdisk" fstab;
+# adb secure
+replace_string default.prop "ro.adb.secure=0" "ro.adb.secure=1" "ro.adb.secure=0";
+replace_string default.prop "ro.secure=0" "ro.secure=1" "ro.secure=0";
+# add spectrum support
+insert_line init.mt6752.rc "import /init.spectrum.rc" after "import init.project.rc" "import /init.spectrum.rc\n";
 
 # end ramdisk changes
 
